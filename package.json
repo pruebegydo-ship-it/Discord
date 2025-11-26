@@ -1,25 +1,20 @@
 {
-  "name": "discord-image-downloader-bot",
-  "version": "1.0.0",
-  "description": "Bot para descargar imágenes secuenciales con visor integrado",
+  "name": "comic-downloader-bot",
+  "version": "2.0.0",
+  "description": "Bot de Discord que descarga cómics completos automáticamente y permite verlos página por página",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "node index.js"
   },
-  "keywords": ["discord", "bot", "images", "downloader"],
-  "author": "fer",
+  "author": "Tu nombre o nick",
   "license": "MIT",
   "dependencies": {
-    "discord.js": "^14.14.1",
-    "axios": "^1.6.5",
-    "jszip": "^3.10.1",
-    "dotenv": "^16.3.1"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
+    "discord.js": "^14.16.3",
+    "axios": "^1.7.7",
+    "jszip": "^3.10.1"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.x"
   }
 }

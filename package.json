@@ -1,13 +1,10 @@
 {
-  "name": "comic-bot",
-  "version": "1.0.0",
+  "name": "mi-bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.16.3",
-    "axios": "^1.7.7",
-    "jszip": "^3.10.1"
+    "discord.js": "^14.14.1"
   }
 }

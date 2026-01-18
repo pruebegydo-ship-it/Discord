@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador de URLs</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px;}
+.container{max-width:900px;margin:0 auto;background:white;border-radius:20px;padding:40px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+.form-group{margin-bottom:25px;}
+.form-group label{display:block;color:#333;font-weight:600;margin-bottom:10px;font-size:16px;}
+.form-group input{width:100%;padding:15px;border:2px solid #e0e0e0;border-radius:10px;font-size:16px;transition:border-color 0.3s;}
+.form-group input:focus{outline:none;border-color:#667eea;}
+.form-group .hint{color:#999;font-size:13px;margin-top:5px;}
+.number-inputs{display:grid;grid-template-columns:1fr 1fr;gap:15px;}
+.btn-container{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:25px;}
+button{padding:12px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.btn-generate{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;}
+.btn-generate:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(102,126,234,0.4);}
+.btn-generate:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
+.btn-copy{background:#17a2b8;color:white;display:none;}
+.btn-copy:hover{background:#138496;transform:translateY(-1px);}
+.btn-save{background:#28a745;color:white;display:none;}
+.btn-save:hover{background:#218838;transform:translateY(-1px);}
+.results{margin-top:30px;padding:20px;background:#f8f9fa;border-radius:10px;display:none;}
+.stat-solo{text-align:center;padding:15px;background:white;border-radius:8px;max-width:200px;margin:0 auto;}
+.stat-number{font-size:24px;font-weight:bold;color:#667eea;}
+.stat-label{font-size:12px;color:#666;margin-top:5px;}
+.error-message{background:#ffebee;border:2px solid #ef5350;border-radius:10px;padding:15px;color:#c62828;margin-top:20px;display:none;}
+.saved-section{margin-top:30px;padding:20px;background:#f8f9fa;border-radius:10px;}
+.saved-section h3{color:#333;margin-bottom:20px;text-align:center;}
+.manga-grid{display:flex;gap:15px;overflow-x:auto;padding-bottom:10px;}
+.manga-grid::-webkit-scrollbar{height:8px;}
+.manga-grid::-webkit-scrollbar-track{background:#f1f1f1;border-radius:10px;}
+.manga-grid::-webkit-scrollbar-thumb{background:#667eea;border-radius:10px;}
+.manga-grid::-webkit-scrollbar-thumb:hover{background:#5568d3;}
+.manga-card{background:white;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.1);transition:transform 0.2s,box-shadow 0.2s;cursor:pointer;position:relative;min-width:140px;flex-shrink:0;}
+.manga-card:hover{transform:translateY(-5px);box-shadow:0 8px 20px rgba(0,0,0,0.2);}
+.manga-card.verifying{opacity:0.6;pointer-events:none;}
+.manga-card.verified{border:2px solid #28a745;}
+.manga-card.error{border:2px solid #ef5350;}
+.progress-bar{position:absolute;bottom:0;left:0;right:0;height:0%;background:rgba(40,167,69,0.5);transition:height 0.3s ease;z-index:1;pointer-events:none;}
+.manga-cover{width:100%;height:200px;object-fit:contain;background:#f0f0f0;}
+.manga-info{padding:12px;}
+.manga-title{font-size:13px;font-weight:600;color:#333;margin-bottom:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.manga-count{font-size:11px;color:#666;}
+.verify-badge{position:absolute;top:8px;left:8px;background:rgba(40,167,69,0.9);color:white;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:bold;display:none;}
+.manga-card.verified .verify-badge{display:block;}
+.verifying-spinner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:30px;animation:spin 1s linear infinite;}
+@keyframes spin{0%{transform:translate(-50%,-50%) rotate(0deg);}100%{transform:translate(-50%,-50%) rotate(360deg);}}
+.manga-delete{position:absolute;top:8px;right:8px;background:rgba(239,83,80,0.9);color:white;border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.2s;}
+.manga-card:hover .manga-delete{opacity:1;}
+.manga-delete:hover{background:#ef5350;}
+.save-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;}
+.save-modal.active{display:flex;}
+.modal-content{background:white;border-radius:15px;padding:30px;max-width:400px;width:90%;}
+.modal-content h3{color:#333;margin-bottom:20px;text-align:center;}
+.modal-content input{width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;margin-bottom:15px;}
+.modal-content input:focus{outline:none;border-color:#667eea;}
+.modal-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.modal-buttons button{padding:12px;}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="form-group">
+<label>URL Completa de Ejemplo:</label>
+<input type="text" id="fullUrl" placeholder="Pega tu URL aquí" oninput="detectPattern()">
+<div class="hint">Pega una URL completa con número y extensión</div>
+</div>
+
+<div class="number-inputs">
+<div class="form-group">
+<label>Generar Desde:</label>
+<input type="text" id="startNum" value="1">
+</div>
+<div class="form-group">
+<label>Hasta:</label>
+<input type="number" id="endNum" value="50" min="1">
+</div>
+</div>
+
+<div class="btn-container">
+<button class="btn-generate" id="generateBtn" onclick="generateUrls()"> Generar</button>
+<button class="btn-copy" id="copyBtn" onclick="copyUrls()"> Copiar</button>
+<button class="btn-save" id="saveBtn" onclick="openSaveModal()"> Guardar</button>
+</div>
+
+<div class="error-message" id="errorMessage"></div>
+
+<div class="results" id="results">
+<div class="stat-solo">
+<div class="stat-number" id="totalUrls">0</div>
+<div class="stat-label">URLs Generadas</div>
+</div>
+</div>
+</div>
+
+<div class="saved-section">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+<h3 style="margin:0;"> Mangas Guardados</h3>
+<div style="display:flex;gap:15px;align-items:center;flex-wrap:wrap;">
+<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:600;color:#333;">
+<input type="checkbox" id="verifyToggle" onchange="toggleVerification()" style="width:18px;height:18px;cursor:pointer;">
+<span> Verificar No Verificados</span>
+</label>
+<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:600;color:#28a745;">
+<input type="checkbox" id="reverifyToggle" onchange="toggleReverification()" style="width:18px;height:18px;cursor:pointer;">
+<span> Re-verificar Verificados</span>
+</label>
+<button class="btn-generate" onclick="downloadAllMangas()" style="padding:8px 16px;font-size:13px;"> Descargar Todo</button>
+</div>
+</div>
+<div class="manga-grid" id="mangaGrid"></div>
+</div>
+
+<div class="save-modal" id="saveModal">
+<div class="modal-content">
+<h3> Guardar Manga</h3>
+<input type="text" id="mangaTitle" placeholder="Nombre del manga">
+<input type="text" id="mangaCover" placeholder="URL de la portada">
+<div class="modal-buttons">
+<button class="btn-generate" onclick="saveManga()">Guardar</button>
+<button class="btn-copy" onclick="closeSaveModal()">Cancelar</button>
+</div>
+</div>
+</div>
+
+<script>
+const SITES = [
+  {name:'3Hentai',exampleUrl:'https://s1.3hentai.xyz/d2069786/1.jpg',pattern:{regex:/^(https:\/\/s\d+\.3hentai\.xyz\/d\d+\/)(\d+)(\.\w+)$/,description:'https://s1.3hentai.xyz/dXXXXXXX/N.ext'}},
+  {name:'ComicsFlux',exampleUrl:'https://comicsflix.com/uploads/2024/12/06/comic-porno-almondman-shiriai-kara-azukatta-ko-ni-otosarechau-kanojo-hentai-0.jpg',pattern:{regex:/^(.+\/)([^\/]+-)(\d+)(\.\w+)$/,description:'https://.../.../nombre-N.ext'}},
+  {name:'MelaPeloConDibujos',exampleUrl:'https://melapelocondibujos.com/wp-content/uploads/2025/06/Anita_006-768x1025.webp',pattern:{regex:/^(.+_)(\d+)(-\d+x\d+)(\.\w+)$/,description:'https://.../.../Nombre_NNN-WIDTHxHEIGHT.ext'}},
+  {name:'ComicPorn',exampleUrl:'https://m5.comicporn.xxx/016/ps1i8h9a6z/1.jpg',pattern:{regex:/^(https:\/\/m\d+\.comicporn\.xxx\/\d+\/[^\/]+\/)(\d+)(\.\w+)$/,description:'https://mX.comicporn.xxx/XXX/code/N.ext'}},
+  {name:'MANGA HENTAI',exampleUrl:'https://manga.hentaiporno.xxx/wp-content/uploads/2025/09/3540704_01.webp',pattern:{regex:/^(https:\/\/manga\.hentaiporno\.xxx\/wp-content\/uploads\/\d{4}\/\d{2}\/\d+_)(\d+)(\.\w+)$/,description:'https://manga.hentaiporno.xxx/.../XXXXXXX_NN.ext'}},
+  {name:'HentaiEra',exampleUrl:'https://m9.hentaiera.com/027/l2udzxa7wq/1.jpg',pattern:{regex:/^(https:\/\/m\d+\.hentaiera\.com\/\d+\/[^\/]+\/)(\d+)(\.\w+)$/,description:'https://mX.hentaiera.com/XXX/code/N.ext'}},
+  {name:'Iku Hentai Comics XXX',exampleUrl:'https://ikuhentai.net/wp-content/uploads/WP-manga/data/manga_63eaa80b8c4ee/8749d0be070f9e878bf76fa28e93d90a/01.webp',pattern:{regex:/^(https:\/\/ikuhentai\.net\/wp-content\/uploads\/WP-manga\/data\/[^\/]+\/[^\/]+\/)(\d+)(\.\w+)$/,description:'https://ikuhentai.net/.../manga/.../NN.ext'}},
+  {name:'Akuma',exampleUrl:'https://s2.akuma.moe/3410254/0001-32e151bd-olqsy5oc.jpg',pattern:{regex:/^(https:\/\/s\d+\.akuma\.moe\/\d+\/)(\d+)(-[^\/]+)(\.\w+)$/,description:'https://sX.akuma.moe/XXXXXXX/NNNN-code.ext'}}
+];
+
+const PROXY_URL='https://ia-sofia.armijosfeo5.workers.dev/?url=';
+let generatedUrls=[];
+let detectedPattern=null;
+let db=null;
+let isVerifying=false;
+let imageCache=new Set();
+
+function clearAllImages(){
+  const imgs=document.querySelectorAll('img');
+  imgs.forEach(img=>{
+    if(!img.classList.contains('manga-cover')){
+      const oldSrc=img.src;
+      img.onload=null;
+      img.onerror=null;
+      img.src='';
+      if(oldSrc&&oldSrc.startsWith('blob:')){
+        URL.revokeObjectURL(oldSrc);
+      }
+      img.remove();
+    }
+  });
+  imageCache.clear();
+  if(window.gc){
+    window.gc();
+  }
+}
+
+function initDB(){
+  return new Promise((resolve,reject)=>{
+    const request=indexedDB.open('MangaURLsDB',1);
+    request.onerror=()=>reject(request.error);
+    request.onsuccess=()=>{
+      db=request.result;
+      resolve(db);
+    };
+    request.onupgradeneeded=(event)=>{
+      const db=event.target.result;
+      if(!db.objectStoreNames.contains('mangas')){
+        db.createObjectStore('mangas',{keyPath:'id',autoIncrement:true});
+      }
+    };
+  });
+}
+
+async function saveManga(){
+  const title=document.getElementById('mangaTitle').value.trim();
+  const cover=document.getElementById('mangaCover').value.trim();
+  if(!title||!cover){
+    showError(' Ingresa el título y la URL de la portada');
+    return;
+  }
+  if(generatedUrls.length===0){
+    showError(' Primero genera URLs');
+    return;
+  }
+  const manga={title:title,cover:cover,urls:generatedUrls,count:generatedUrls.length,date:new Date().toISOString()};
+  const transaction=db.transaction(['mangas'],'readwrite');
+  const store=transaction.objectStore('mangas');
+  store.add(manga);
+  transaction.oncomplete=()=>{
+    closeSaveModal();
+    loadMangas();
+    showSuccess(' Manga guardado correctamente');
+  };
+}
+
+async function loadMangas(){
+  const transaction=db.transaction(['mangas'],'readonly');
+  const store=transaction.objectStore('mangas');
+  const request=store.getAll();
+  request.onsuccess=()=>{
+    const mangas=request.result;
+    displayMangas(mangas);
+  };
+}
+
+function displayMangas(mangas){
+  const grid=document.getElementById('mangaGrid');
+  grid.innerHTML='';
+  const reversedMangas=[...mangas].reverse();
+  reversedMangas.forEach(manga=>{
+    const card=document.createElement('div');
+    card.className='manga-card';
+    card.id=`manga-${manga.id}`;
+    if(manga.verified)card.classList.add('verified');
+    card.onclick=()=>loadMangaUrls(manga);
+    card.innerHTML=`
+      <div class="progress-bar" id="progress-${manga.id}"></div>
+      <div class="verify-badge"> Verificado</div>
+      <button class="manga-delete" onclick="event.stopPropagation();deleteManga(${manga.id})">×</button>
+      <img src="${PROXY_URL}${encodeURIComponent(manga.cover)}" class="manga-cover" alt="${manga.title}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22140%22 height=%22200%22%3E%3Crect fill=%22%23667eea%22 width=%22140%22 height=%22200%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2240%22 fill=%22white%22%3E%3C/text%3E%3C/svg%3E'">
+      <div class="manga-info">
+        <div class="manga-title">${manga.title}</div>
+        <div class="manga-count">${manga.count} URLs</div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function loadMangaUrls(manga){
+  generatedUrls=manga.urls;
+  document.getElementById('mangaTitle').value=manga.title;
+  const text=generatedUrls.join('\n');
+  navigator.clipboard.writeText(text).then(()=>{
+    showSuccess(' URLs copiadas al portapapeles');
+  });
+}
+
+function deleteManga(id){
+  if(!confirm('¿Eliminar este manga?'))return;
+  const transaction=db.transaction(['mangas'],'readwrite');
+  const store=transaction.objectStore('mangas');
+  store.delete(id);
+  transaction.oncomplete=()=>{
+    loadMangas();
+  };
+}
+
+function downloadAllMangas(){
+  const transaction=db.transaction(['mangas'],'readonly');
+  const store=transaction.objectStore('mangas');
+  const request=store.getAll();
+  request.onsuccess=()=>{
+    const mangas=request.result;
+    if(mangas.length===0){
+      showError(' No hay mangas guardados para descargar');
+      return;
+    }
+    const jsonData={version:"1.0",exportDate:new Date().toISOString(),comics:mangas.map(manga=>({title:manga.title,pages:manga.urls,cover:manga.cover,date:manga.date,id:manga.id}))};
+    const text=JSON.stringify(jsonData,null,2);
+    const blob=new Blob([text],{type:'application/json'});
+    const link=document.createElement('a');
+    link.href=URL.createObjectURL(blob);
+    link.download=`mangas_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+    showSuccess(' Archivo JSON descargado correctamente');
+  };
+}
+
+async function toggleVerification(){
+  const toggle=document.getElementById('verifyToggle');
+  if(!toggle.checked){
+    isVerifying=false;
+    return;
+  }
+  isVerifying=true;
+  document.getElementById('reverifyToggle').checked=false;
+  const transaction=db.transaction(['mangas'],'readonly');
+  const store=transaction.objectStore('mangas');
+  const request=store.getAll();
+  request.onsuccess=async()=>{
+    const mangas=request.result;
+    for(const manga of mangas){
+      if(!isVerifying)break;
+      if(manga.verified)continue;
+      clearAllImages();
+      await verifyManga(manga);
+      clearAllImages();
+      await new Promise(resolve=>setTimeout(resolve,800));
+    }
+    if(isVerifying){
+      showSuccess(' Verificación completada');
+    }
+    toggle.checked=false;
+    isVerifying=false;
+    clearAllImages();
+  };
+}
+
+async function verifyManga(manga){
+  const card=document.getElementById(`manga-${manga.id}`);
+  const progressBar=document.getElementById(`progress-${manga.id}`);
+  if(!card||!progressBar)return;
+  card.classList.add('verifying');
+  const batchSize=6;
+  const validUrls=[];
+  const totalUrls=manga.urls.length;
+  for(let i=0;i<manga.urls.length;i+=batchSize){
+    if(!isVerifying)break;
+    clearAllImages();
+    const batch=manga.urls.slice(i,i+batchSize);
+    const results=await Promise.all(batch.map(url=>checkImageUrl(url)));
+    batch.forEach((url,index)=>{
+      if(results[index]){
+        validUrls.push(url);
+      }
+    });
+    const progress=Math.min(((i+batchSize)/totalUrls)*50,50);
+    progressBar.style.height=`${progress}%`;
+    clearAllImages();
+    await new Promise(resolve=>setTimeout(resolve,200));
+  }
+  let finalUrls=[...validUrls];
+  if(validUrls.length>0){
+    const lastValidUrl=validUrls[validUrls.length-1];
+    const detectedInfo=detectPatternFromUrl(lastValidUrl);
+    if(detectedInfo){
+      progressBar.style.height='50%';
+      clearAllImages();
+      const additionalUrls=await findAdditionalUrls(detectedInfo,validUrls.length,manga.id);
+      finalUrls=[...validUrls,...additionalUrls];
+    }
+  }
+  progressBar.style.height='100%';
+  await new Promise(resolve=>setTimeout(resolve,300));
+  const updatedManga={...manga,urls:finalUrls,count:finalUrls.length,verified:true};
+  const transaction=db.transaction(['mangas'],'readwrite');
+  const store=transaction.objectStore('mangas');
+  store.put(updatedManga);
+  transaction.oncomplete=()=>{
+    clearAllImages();
+    loadMangas();
+  };
+}
+
+function detectPatternFromUrl(url){
+  for(const site of SITES){
+    const match=url.match(site.pattern.regex);
+    if(match){
+      let base,numberStr,format,sizeInfo='',prefix='';
+      if(site.name==='MelaPeloConDibujos'){
+        base=match[1];
+        numberStr=match[2];
+        sizeInfo=match[3];
+        format=match[4];
+      }else if(site.name==='ComicsFlux'){
+        base=match[1];
+        prefix=match[2];
+        numberStr=match[3];
+        format=match[4];
+      }else if(site.name==='Akuma'){
+        base=match[1];
+        numberStr=match[2];
+        sizeInfo=match[3];
+        format=match[4];
+      }else{
+        base=match[1];
+        numberStr=match[2];
+        format=match[3];
+      }
+      const paddingLength=numberStr.length;
+      const number=parseInt(numberStr);
+      return{base,number,format,sizeInfo,prefix,paddingLength};
+    }
+  }
+  const genericPattern=/^(.+?)(\d+)(\.\w+)$/;
+  const match=url.match(genericPattern);
+  if(match){
+    const base=match[1];
+    const numberStr=match[2];
+    const format=match[3];
+    const paddingLength=numberStr.length;
+    const number=parseInt(numberStr);
+    return{base,number,format,sizeInfo:'',prefix:'',paddingLength};
+  }
+  return null;
+}
+
+async function findAdditionalUrls(detectedInfo,startFrom,mangaId){
+  const additionalUrls=[];
+  let currentNum=startFrom+1;
+  let consecutiveFails=0;
+  const maxConsecutiveFails=3;
+  const maxAttempts=50;
+  const progressBar=document.getElementById(`progress-${mangaId}`);
+  const batchSize=5;
+  for(let attempt=0;attempt<maxAttempts&&consecutiveFails<maxConsecutiveFails;attempt+=batchSize){
+    if(!isVerifying)break;
+    clearAllImages();
+    const batch=[];
+    for(let i=0;i<batchSize&&(attempt+i)<maxAttempts;i++){
+      const num=currentNum+i;
+      const numStr=String(num).padStart(detectedInfo.paddingLength,'0');
+      const testUrl=detectedInfo.base+(detectedInfo.prefix||'')+numStr+(detectedInfo.sizeInfo||'')+detectedInfo.format;
+      batch.push({url:testUrl,num});
+    }
+    const results=await Promise.all(batch.map(item=>checkImageUrl(item.url)));
+    let batchHasValid=false;
+    results.forEach((isValid,index)=>{
+      if(isValid){
+        additionalUrls.push(batch[index].url);
+        consecutiveFails=0;
+        batchHasValid=true;
+      }
+    });
+    if(!batchHasValid){
+      consecutiveFails++;
+    }
+    currentNum+=batchSize;
+    const progress=50+((attempt+batchSize)/maxAttempts)*50;
+    if(progressBar)progressBar.style.height=`${Math.min(progress,100)}%`;
+    clearAllImages();
+    await new Promise(resolve=>setTimeout(resolve,250));
+  }
+  return additionalUrls;
+}
+
+async function checkImageUrl(url){
+  if(imageCache.has(url)){
+    return true;
+  }
+  return new Promise((resolve)=>{
+    const img=new Image();
+    let resolved=false;
+    const cleanup=()=>{
+      img.onload=null;
+      img.onerror=null;
+      img.src='';
+      if(img.parentNode){
+        img.parentNode.removeChild(img);
+      }
+    };
+    const timeoutId=setTimeout(()=>{
+      if(!resolved){
+        resolved=true;
+        cleanup();
+        tryWithProxy();
+      }
+    },5000);
+    const tryWithProxy=()=>{
+      const imgProxy=new Image();
+      let proxyResolved=false;
+      const proxyCleanup=()=>{
+        imgProxy.onload=null;
+        imgProxy.onerror=null;
+        imgProxy.src='';
+        if(imgProxy.parentNode){
+          imgProxy.parentNode.removeChild(imgProxy);
+        }
+      };
+      const proxyTimeoutId=setTimeout(()=>{
+        if(!proxyResolved){
+          proxyResolved=true;
+          proxyCleanup();
+          resolve(false);
+        }
+      },5000);
+      imgProxy.onload=()=>{
+        if(!proxyResolved){
+          proxyResolved=true;
+          clearTimeout(proxyTimeoutId);
+          proxyCleanup();
+          imageCache.add(url);
+          resolve(true);
+        }
+      };
+      imgProxy.onerror=()=>{
+        if(!proxyResolved){
+          proxyResolved=true;
+          clearTimeout(proxyTimeoutId);
+          proxyCleanup();
+          resolve(false);
+        }
+      };
+      imgProxy.src=PROXY_URL+encodeURIComponent(url);
+    };
+    img.onload=()=>{
+      if(!resolved){
+        resolved=true;
+        clearTimeout(timeoutId);
+        cleanup();
+        imageCache.add(url);
+        resolve(true);
+      }
+    };
+    img.onerror=()=>{
+      if(!resolved){
+        resolved=true;
+        clearTimeout(timeoutId);
+        cleanup();
+        tryWithProxy();
+      }
+    };
+    img.src=url;
+  });
+}
+
+async function toggleReverification(){
+  const toggle=document.getElementById('reverifyToggle');
+  if(!toggle.checked){
+    isVerifying=false;
+    return;
+  }
+  if(isVerifying){
+    showError(' Ya hay una verificación en proceso');
+    toggle.checked=false;
+    return;
+  }
+  isVerifying=true;
+  document.getElementById('verifyToggle').checked=false;
+  const transaction=db.transaction(['mangas'],'readonly');
+  const store=transaction.objectStore('mangas');
+  const request=store.getAll();
+  request.onsuccess=async()=>{
+    const mangas=request.result;
+    const verifiedMangas=mangas.filter(m=>m.verified);
+    if(verifiedMangas.length===0){
+      showError(' No hay mangas verificados para re-verificar');
+      toggle.checked=false;
+      isVerifying=false;
+      return;
+    }
+    for(const manga of verifiedMangas){
+      if(!isVerifying)break;
+      clearAllImages();
+      await verifyManga({...manga,verified:false});
+      clearAllImages();
+      await new Promise(resolve=>setTimeout(resolve,800));
+    }
+    if(isVerifying){
+      showSuccess(' Re-verificación completada');
+    }
+    toggle.checked=false;
+    isVerifying=false;
+    clearAllImages();
+  };
+}
+
+function openSaveModal(){
+  document.getElementById('mangaTitle').value='';
+  document.getElementById('mangaCover').value=generatedUrls[0]||'';
+  document.getElementById('saveModal').classList.add('active');
+}
+
+function closeSaveModal(){
+  document.getElementById('saveModal').classList.remove('active');
+}
+
+function detectPattern(){
+  const fullUrl=document.getElementById('fullUrl').value.trim();
+  const errorMessage=document.getElementById('errorMessage');
+  errorMessage.style.display='none';
+  if(!fullUrl){
+    return;
+  }
+  let matchFound=false;
+  for(const site of SITES){
+    const match=fullUrl.match(site.pattern.regex);
+    if(match){
+      let base,numberStr,format,sizeInfo='',prefix='';
+      if(site.name==='MelaPeloConDibujos'){
+        base=match[1];
+        numberStr=match[2];
+        sizeInfo=match[3];
+        format=match[4];
+      }else if(site.name==='ComicsFlux'){
+        base=match[1];
+        prefix=match[2];
+        numberStr=match[3];
+        format=match[4];
+      }else if(site.name==='Akuma'){
+        base=match[1];
+        numberStr=match[2];
+        sizeInfo=match[3];
+        format=match[4];
+      }else{
+        base=match[1];
+        numberStr=match[2];
+        format=match[3];
+      }
+      const paddingLength=numberStr.length;
+      const number=parseInt(numberStr);
+      detectedPattern={base,number,format,sizeInfo,prefix,paddingLength};
+      document.getElementById('startNum').value=numberStr;
+      document.getElementById('endNum').value=Math.max(50,number+49);
+      matchFound=true;
+      break;
+    }
+  }
+  if(!matchFound){
+    const genericPattern=/^(.+?)(\d+)(\.\w+)$/;
+    const match=fullUrl.match(genericPattern);
+    if(match){
+      const base=match[1];
+      const numberStr=match[2];
+      const format=match[3];
+      const paddingLength=numberStr.length;
+      const number=parseInt(numberStr);
+      detectedPattern={base,number,format,sizeInfo:'',prefix:'',paddingLength};
+      document.getElementById('startNum').value=numberStr;
+      document.getElementById('endNum').value=Math.max(50,number+49);
+    }else{
+      showError(' No se pudo detectar el patrón. Asegúrate de que la URL termine con número + extensión (ej: 1.jpg)');
+    }
+  }
+}
+
+function generateUrls(){
+  const startNumStr=document.getElementById('startNum').value.trim();
+  const endNum=parseInt(document.getElementById('endNum').value);
+  if(!detectedPattern){
+    showError(' Primero ingresa una URL completa para detectar el patrón');
+    return;
+  }
+  const startNum=parseInt(startNumStr);
+  if(startNum>endNum){
+    showError(' El número inicial debe ser menor o igual al final');
+    return;
+  }
+  document.getElementById('errorMessage').style.display='none';
+  generatedUrls=[];
+  const sizeInfo=detectedPattern.sizeInfo||'';
+  const prefix=detectedPattern.prefix||'';
+  const paddingLength=startNumStr.length>1&&startNumStr[0]==='0'?startNumStr.length:detectedPattern.paddingLength;
+  for(let i=startNum;i<=endNum;i++){
+    const numStr=String(i).padStart(paddingLength,'0');
+    const url=detectedPattern.base+prefix+numStr+sizeInfo+detectedPattern.format;
+    generatedUrls.push(url);
+  }
+  displayResults(startNumStr,endNum);
+}
+
+function displayResults(start,end){
+  document.getElementById('totalUrls').textContent=generatedUrls.length;
+  document.getElementById('results').style.display='block';
+  document.getElementById('copyBtn').style.display='block';
+  document.getElementById('saveBtn').style.display='block';
+}
+
+function copyUrls(){
+  if(generatedUrls.length===0){
+    showError(' No hay URLs para copiar');
+    return;
+  }
+  const title=document.getElementById('mangaTitle').value.trim()||'Manga';
+  const jsonData={version:"1.0",exportDate:new Date().toISOString(),comics:[{title:title,pages:generatedUrls,cover:generatedUrls[0],date:new Date().toISOString(),id:Date.now()}]};
+  const text=JSON.stringify(jsonData,null,2);
+  navigator.clipboard.writeText(text).then(()=>{
+    const copyBtn=document.getElementById('copyBtn');
+    const originalText=copyBtn.textContent;
+    copyBtn.textContent=' Copiado';
+    copyBtn.style.background='#28a745';
+    setTimeout(()=>{
+      copyBtn.textContent=originalText;
+      copyBtn.style.background='#17a2b8';
+    },2000);
+  }).catch(()=>{
+    showError(' Error al copiar al portapapeles');
+  });
+}
+
+function showError(message){
+  const errorDiv=document.getElementById('errorMessage');
+  errorDiv.textContent=message;
+  errorDiv.style.display='block';
+  setTimeout(()=>{
+    errorDiv.style.display='none';
+  },3000);
+}
+
+function showSuccess(message){
+  const errorDiv=document.getElementById('errorMessage');
+  errorDiv.textContent=message;
+  errorDiv.style.background='#e8f5e9';
+  errorDiv.style.borderColor='#66bb6a';
+  errorDiv.style.color='#2e7d32';
+  errorDiv.style.display='block';
+  setTimeout(()=>{
+    errorDiv.style.display='none';
+    errorDiv.style.background='#ffebee';
+    errorDiv.style.borderColor='#ef5350';
+    errorDiv.style.color='#c62828';
+  },3000);
+}
+
+document.getElementById('fullUrl').addEventListener('keypress',(e)=>{
+  if(e.key==='Enter')generateUrls();
+});
+document.getElementById('endNum').addEventListener('keypress',(e)=>{
+  if(e.key==='Enter')generateUrls();
+});
+
+initDB().then(()=>{
+  loadMangas();
+});
+</script>
+</body>
+</html>
